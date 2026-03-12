@@ -1,0 +1,15 @@
+[package]
+name = "aria-sip-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["5060 Solutions <josh@5060solutions.com>"]
+description = "Shared SIP protocol utilities for Aria — digest auth, message parsing, and ID generation"
+license = "LicenseRef-Proprietary"
+
+[dependencies]
+md-5 = "0.10.6"
+sha2 = "0.10.9"
+rand = "0.8"
+hex = "0.4.3"
+uuid = { version = "1", features = ["v4"] }
+log = "0.4"
