@@ -134,8 +134,13 @@ pub fn extract_challenge_realm(header: &str) -> Option<String> {
 ///
 /// Handles both quoted (`realm="example.com"`) and unquoted (`algorithm=MD5`) values.
 pub fn extract_param(header: &str, name: &str) -> Option<String> {
-    let search = format!("{}=", name);
-    let pos = header.find(&search)?;
+    let search = format!("{name}=");
+    // Find the parameter, ensuring we match a whole word boundary
+    // (e.g., searching for "nonce=" must not match "cnonce=").
+    let pos = header
+        .match_indices(&search)
+        .find(|&(i, _)| i == 0 || !header.as_bytes()[i - 1].is_ascii_alphanumeric())?
+        .0;
     let rest = &header[pos + search.len()..];
 
     if let Some(stripped) = rest.strip_prefix('"') {
@@ -273,6 +278,27 @@ mod tests {
     fn test_extract_param_missing() {
         let header = r#"Digest realm="example.com""#;
         assert_eq!(extract_param(header, "nonce"), None);
+    }
+
+    #[test]
+    fn test_extract_param_nonce_not_confused_with_cnonce() {
+        // SIPp sends cnonce before nonce — extract_param("nonce") must not
+        // match the "nonce=" substring inside "cnonce=".
+        let header = r#"Digest username="1002",realm="lyonscomm.com",cnonce="1eb20305",nc=00000001,qop=auth,uri="sip:lyonscomm.com",nonce="1ca945e55e9c3f28a8e7249aa2adbe41",response="de4b28e1",algorithm=MD5"#;
+        assert_eq!(
+            extract_param(header, "nonce"),
+            Some("1ca945e55e9c3f28a8e7249aa2adbe41".into()),
+            "nonce must not match cnonce"
+        );
+        assert_eq!(
+            extract_param(header, "cnonce"),
+            Some("1eb20305".into()),
+        );
+        assert_eq!(
+            extract_param(header, "nc"),
+            Some("00000001".into()),
+            "nc must not match cnonce"
+        );
     }
 
     #[test]
